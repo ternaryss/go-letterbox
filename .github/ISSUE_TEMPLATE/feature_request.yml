@@ -1,0 +1,33 @@
+name: Feature request
+description: Suggest a new feature or enhancement for the project
+title: "[Name the feature request...]"
+labels: ["request"]
+assignees: []
+
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: ✨ Description
+      description: What feature would you like to be added?
+      placeholder: Clearly describe the feature you’re suggesting...
+    validations:
+      required: true
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: 💡 Motivation
+      description: Why is this feature important? What problem does it solve?
+      placeholder: Explain the use case or the problem this feature would address...
+    validations:
+      required: true
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: 🗒️ Additional notes
+      description: Add any other context, references or screenshots.
+      placeholder: Links to similar features in other tools, mockups...
+    validations:
+      required: false

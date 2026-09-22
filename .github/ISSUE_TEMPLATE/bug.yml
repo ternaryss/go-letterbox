@@ -1,0 +1,51 @@
+name: Bug report
+description: Report a problem or unexpected behavior in the project
+title: "[Name the bug...]"
+labels: ["bug"]
+assignees: []
+
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: 🐞 Bug description
+      description: Clearly describe the bug you encountered.
+      placeholder: Provide a clear and concise description of the problem...
+    validations:
+      required: true
+
+  - type: textarea
+    id: correct
+    attributes:
+      label: ✅ Correct behavior
+      description: Describe how the application should behave instead.
+      placeholder: What should happen instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 🔄 Steps to reproduce
+      description: List all the steps needed to reproduce the issue.
+      placeholder: Steps in form of numbered list...
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: 🌍 Environment details
+      description: Provide details about your environment.
+      placeholder: OS, browser, application version...
+    validations:
+      required: false
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: 🗒️ Additional notes
+      description: Add any other information that might be helpful.
+      placeholder: Extra details, screenshots, logs…
+    validations:
+      required: false

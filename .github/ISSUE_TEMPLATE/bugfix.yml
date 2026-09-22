@@ -1,0 +1,51 @@
+name: Bugfix
+description: Internal issue for an accepted bug (created after a bug report is approved)
+title: "[Name the bugfix...]"
+labels: ["bugfix"]
+assignees: []
+
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: 🐞 Bug summary
+      description: Summarize the bug that will be fixed (from the original bug report).
+      placeholder: Short summary of the issue...
+    validations:
+      required: true
+
+  - type: textarea
+    id: fix
+    attributes:
+      label: 🔧 Proposed fix
+      description: Describe how you plan to resolve the bug.
+      placeholder: Outline the technical solution, changes needed...
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 🔄 Steps to reproduce
+      description: List all the steps needed to reproduce the issue.
+      placeholder: Steps in form of numbered list...
+    validations:
+      required: true
+
+  - type: textarea
+    id: related
+    attributes:
+      label: 🔗 Connected issues
+      description: List any related issues.
+      placeholder: List of links to related issues...
+    validations:
+      required: false
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: 🗒️ Additional notes
+      description: Add any other information that might be helpful.
+      placeholder: Extra details, screenshots, logs…
+    validations:
+      required: false

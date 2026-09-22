@@ -1,0 +1,33 @@
+name: Feature
+description: Internal issue for an accepted feature (created after a feature request is approved)
+title: "[Name the feature...]"
+labels: ["feature"]
+assignees: []
+
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: ✨ New feature
+      description: Describe the new feature that will be implemented.
+      placeholder: Provide a clear and concise description of the feature...
+    validations:
+      required: true
+
+  - type: textarea
+    id: related
+    attributes:
+      label: 🔗 Connected issues
+      description: List any related issues.
+      placeholder: List of links to related issues...
+    validations:
+      required: false
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: 🗒️ Additional notes
+      description: Add any other information or implementation details that might be helpful.
+      placeholder: Architecture notes, technical considerations...
+    validations:
+      required: false

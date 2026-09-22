@@ -1,0 +1,60 @@
+name: Hotfix
+description: Internal issue for a critical error that needs immediate resolution
+title: "[Name the hotfix...]"
+labels: ["hotfix"]
+assignees: []
+
+body:
+  - type: textarea
+    id: critical
+    attributes:
+      label: 🚨 Critical error
+      description: Describe the critical error in detail.
+      placeholder: What exactly is broken or failing?
+    validations:
+      required: true
+
+  - type: textarea
+    id: correct
+    attributes:
+      label: ✅ Correct behavior
+      description: Describe how the application should behave instead.
+      placeholder: What should happen instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 🔄 Steps to reproduce
+      description: List all the steps needed to reproduce the issue.
+      placeholder: Steps in form of numbered list...
+    validations:
+      required: true
+
+  - type: textarea
+    id: fix
+    attributes:
+      label: 🔧 Proposed fix
+      description: Describe how you plan to resolve the bug.
+      placeholder: Outline the technical solution, changes needed...
+    validations:
+      required: true
+
+  - type: textarea
+    id: related
+    attributes:
+      label: 🔗 Connected issues
+      description: List any related issues.
+      placeholder: List of links to related issues...
+    validations:
+      required: false
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: 🗒️ Additional notes
+      description: Add any other relevant details for context or follow-up actions.
+      placeholder: Release notes, follow-up tasks, long-term fix plan...
+    validations:
+      required: false

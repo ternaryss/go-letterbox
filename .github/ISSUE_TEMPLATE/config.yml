@@ -1,0 +1,6 @@
+blank_issues_enabled: false
+
+contact_links:
+  - name: 📖 Contribution Guide
+    url: https://github.com/ternaryss/go-letterbox/blob/develop/CONTRIBUTING.md
+    about: Read the contribution guidelines before reporting bug or requesting new feature.
