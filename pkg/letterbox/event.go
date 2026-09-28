@@ -1,6 +1,6 @@
 package letterbox
 
 type Event interface {
-	Name() string
+	Type() string
 	Version() int
 }
