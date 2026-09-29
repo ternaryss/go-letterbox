@@ -1,0 +1,38 @@
+{
+  "name": "Event Envelope Model",
+  "description": "Application event model and internal envelope used by Inbox/Outbox flows.",
+  "entrypoints": [
+    {
+      "type": "api",
+      "path": "letterbox.Event",
+      "file": "./pkg/letterbox/event.go",
+      "symbol": "Event"
+    },
+    {
+      "type": "internal",
+      "path": "encode event to envelope",
+      "file": "./pkg/letterbox/envelope.go",
+      "symbol": "encode"
+    }
+  ],
+  "files": [
+    {
+      "path": "./pkg/letterbox/event.go",
+      "role": "event-contract",
+      "priority": 1,
+      "description": "Public contract required from application events."
+    },
+    {
+      "path": "./pkg/letterbox/envelope.go",
+      "role": "envelope-model",
+      "priority": 1,
+      "description": "Creates an envelope with metadata and serialized event content."
+    },
+    {
+      "path": "./pkg/letterbox/message.go",
+      "role": "message-state",
+      "priority": 2,
+      "description": "Combines an envelope with status and defines the message key."
+    }
+  ]
+}

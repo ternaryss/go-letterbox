@@ -1,0 +1,38 @@
+{
+  "name": "Publish Outbox Event",
+  "description": "Accepts the intent to publish an event, encodes it into an envelope, and stores it as a pending message in the Outbox store.",
+  "entrypoints": [
+    {
+      "type": "api",
+      "path": "Outbox.Publish(event)",
+      "file": "./pkg/letterbox/outbox.go",
+      "symbol": "Outbox.Publish"
+    }
+  ],
+  "files": [
+    {
+      "path": "./pkg/letterbox/outbox.go",
+      "role": "main-service",
+      "priority": 1,
+      "description": "Main publishing path: encode validation, message creation, and storage persistence."
+    },
+    {
+      "path": "./pkg/letterbox/envelope.go",
+      "role": "encoder",
+      "priority": 1,
+      "description": "Assigns the envelope id, type, version, sender, and content."
+    },
+    {
+      "path": "./pkg/letterbox/stores.go",
+      "role": "repository-contract",
+      "priority": 2,
+      "description": "Defines the Outbox persistence contract implemented by an application or adapter."
+    },
+    {
+      "path": "./pkg/letterbox/message.go",
+      "role": "state-model",
+      "priority": 2,
+      "description": "Defines the pending status used after a message is stored."
+    }
+  ]
+}

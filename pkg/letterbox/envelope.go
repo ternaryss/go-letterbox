@@ -13,11 +13,11 @@ type Envelope struct {
 	Type       string          `json:"type"`
 	Version    int             `json:"version"`
 	Sender     string          `json:"sender"`
-	OccurredAt time.Time       `json:"occurredAt"` // TODO: verify (should be without Nano)
+	OccurredAt time.Time       `json:"occurredAt"`
 	Content    json.RawMessage `json:"content"`
 }
 
-func NewEnvelope[T Event](event T, sender string) (Envelope, error) {
+func encode[T Event](event T, sender string) (Envelope, error) {
 	if event.Type() == "" {
 		return Envelope{}, errors.New("event type is empty")
 	}

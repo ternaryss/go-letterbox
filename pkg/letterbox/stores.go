@@ -7,5 +7,6 @@ type InboxStore interface {
 
 type OutboxStore interface {
 	Save(message Message) error
-	UpdateStatus(key MessageKey, status Status) error
+	UpdateStatus(id string, status Status) error
+	Pending(limit int) ([]Message, error)
 }
