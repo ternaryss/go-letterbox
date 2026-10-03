@@ -40,6 +40,7 @@ Applications operate on strongly typed events, while Letterbox uses a generic ev
 
 ## Table of Contents
 
+- [Installation](#installation)
 - [Outbox API](#outbox-api)
 - [Inbox API](#inbox-api)
 - [Event Model](#event-model)
@@ -48,6 +49,20 @@ Applications operate on strongly typed events, while Letterbox uses a generic ev
 - [Configuration](#configuration)
 - [Storage Contracts](#storage-contracts)
 - [Examples](#examples)
+
+## Installation
+
+Install the library in an existing Go module with:
+
+```bash
+go get github.com/ternaryss/go-letterbox@latest
+```
+
+Use the library from the `pkg/letterbox` package:
+
+```go
+import "github.com/ternaryss/go-letterbox/pkg/letterbox"
+```
 
 ## Outbox API
 
