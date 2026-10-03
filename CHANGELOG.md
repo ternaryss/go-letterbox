@@ -4,7 +4,9 @@ History of **letterbox** library with changes description.
 
 ## Next release
 
-- `FEATURE` Dummy outbox implementation
+- `FEATURE` Dummy (HTTP) inbox implementation
+- `FEATURE` Inbox API
+- `FEATURE` Dummy (console output) outbox implementation
 - `FEATURE` Outbox API
 - `FEATURE` Definition of outbox storage
 - `FEATURE` Definition of inbox storage

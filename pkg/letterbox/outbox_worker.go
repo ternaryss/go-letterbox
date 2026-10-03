@@ -21,7 +21,16 @@ func newOutboxWorker(storage OutboxStore, config outboxConfig) (*outboxWorker, e
 	}
 
 	worker := &outboxWorker{config: config, storage: storage, publisher: config.publisher, scheduler: scheduler}
-	job := gocron.CronJob(config.cron, false)
+	var job gocron.JobDefinition
+
+	switch config.scheduleMode {
+	case modeCron:
+		job = gocron.CronJob(config.cron, false)
+
+	case modeInterval:
+		job = gocron.DurationJob(config.interval)
+	}
+
 	task := gocron.NewTask(worker.process)
 
 	if _, err := scheduler.NewJob(job, task); err != nil {

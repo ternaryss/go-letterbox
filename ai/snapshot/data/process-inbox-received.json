@@ -1,0 +1,68 @@
+{
+  "name": "Process Inbox Received",
+  "description": "Manual or scheduled processing of stored Inbox messages through typed event handlers.",
+  "entrypoints": [
+    {
+      "type": "api",
+      "path": "Inbox.Flush()",
+      "file": "./pkg/letterbox/inbox.go",
+      "symbol": "Inbox.Flush"
+    },
+    {
+      "type": "scheduler",
+      "path": "Inbox.Start()",
+      "file": "./pkg/letterbox/inbox.go",
+      "symbol": "Inbox.Start"
+    },
+    {
+      "type": "api",
+      "path": "Subscribe(inbox, handler)",
+      "file": "./pkg/letterbox/subscription.go",
+      "symbol": "Subscribe"
+    }
+  ],
+  "files": [
+    {
+      "path": "./pkg/letterbox/inbox_worker.go",
+      "role": "worker",
+      "priority": 1,
+      "description": "Loads received messages, dispatches them, and records processing status."
+    },
+    {
+      "path": "./pkg/letterbox/subscription.go",
+      "role": "subscription-api",
+      "priority": 1,
+      "description": "Registers typed application handlers for incoming event contracts."
+    },
+    {
+      "path": "./pkg/letterbox/dispatcher.go",
+      "role": "dispatcher",
+      "priority": 1,
+      "description": "Routes envelopes to registered handlers by event type and version."
+    },
+    {
+      "path": "./pkg/letterbox/inbox.go",
+      "role": "service-entrypoint",
+      "priority": 1,
+      "description": "Exposes Start, Stop, and Flush for Inbox processing."
+    },
+    {
+      "path": "./pkg/letterbox/envelope.go",
+      "role": "decoder",
+      "priority": 2,
+      "description": "Decodes envelope content into the typed event expected by a handler."
+    },
+    {
+      "path": "./pkg/letterbox/inbox_config.go",
+      "role": "configuration",
+      "priority": 2,
+      "description": "Configures received message limits and cron or interval scheduling."
+    },
+    {
+      "path": "./pkg/letterbox/stores.go",
+      "role": "repository-contract",
+      "priority": 2,
+      "description": "Defines received message loading and Inbox status updates."
+    }
+  ]
+}

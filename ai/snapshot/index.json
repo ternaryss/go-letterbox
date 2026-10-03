@@ -9,7 +9,8 @@
       "envelope",
       "message",
       "status",
-      "encode"
+      "encode",
+      "decode"
     ]
   },
   {
@@ -34,7 +35,37 @@
       "worker",
       "flush",
       "publisher",
-      "cron"
+      "cron",
+      "interval"
+    ]
+  },
+  {
+    "id": "receive-inbox-http-event",
+    "name": "Receive Inbox HTTP Event",
+    "description": "Receiving an HTTP envelope and storing it in the durable Inbox.",
+    "file": "data/receive-inbox-http-event.json",
+    "keywords": [
+      "inbox",
+      "http",
+      "consumer",
+      "receive",
+      "duplicate"
+    ]
+  },
+  {
+    "id": "process-inbox-received",
+    "name": "Process Inbox Received",
+    "description": "Loading received Inbox messages and dispatching them to typed handlers.",
+    "file": "data/process-inbox-received.json",
+    "keywords": [
+      "inbox",
+      "worker",
+      "flush",
+      "subscribe",
+      "dispatcher",
+      "handler",
+      "cron",
+      "interval"
     ]
   }
 ]

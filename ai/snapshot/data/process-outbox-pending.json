@@ -32,7 +32,7 @@
       "path": "./pkg/letterbox/outbox_config.go",
       "role": "configuration",
       "priority": 2,
-      "description": "Configures the schedule, pending message limit, and publisher."
+      "description": "Configures cron or interval scheduling, pending message limit, and publisher."
     },
     {
       "path": "./pkg/letterbox/publishers.go",

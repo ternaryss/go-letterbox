@@ -2,6 +2,7 @@ package letterbox
 
 type InboxStore interface {
 	Save(message Message) (bool, error)
+	Received(limit int) ([]Message, error)
 	UpdateStatus(key MessageKey, status Status) error
 }
 

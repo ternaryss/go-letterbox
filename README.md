@@ -38,6 +38,17 @@ Applications operate on strongly typed events, while Letterbox uses a generic ev
 - Strongly typed application events
 - Minimal integration with application code
 
+## Table of Contents
+
+- [Outbox API](#outbox-api)
+- [Inbox API](#inbox-api)
+- [Event Model](#event-model)
+- [Outbox Flow](#outbox-flow)
+- [Inbox Flow](#inbox-flow)
+- [Configuration](#configuration)
+- [Storage Contracts](#storage-contracts)
+- [Examples](#examples)
+
 ## Outbox API
 
 The Outbox API is exposed from the `github.com/ternaryss/go-letterbox/pkg/letterbox` package.
@@ -50,7 +61,7 @@ outbox, err := letterbox.NewOutbox(sender, storage, options...)
 
 - `sender`: a non-empty identifier of the publishing application.
 - `storage`: an implementation of `letterbox.OutboxStore`.
-- `options`: optional `letterbox.OutboxOption` values.
+- `options`: `letterbox.OutboxOption` values, including a configured publisher.
 
 Available Outbox methods:
 
@@ -60,6 +71,62 @@ Available Outbox methods:
 | `Flush() error` | Processes pending messages once. |
 | `Start()` | Starts scheduled processing of pending messages. |
 | `Stop() error` | Stops the scheduler used by `Start`. |
+
+The current built-in publisher is the console publisher configured with `WithOutboxConsolePublisher`. It logs published envelopes with `log/slog`.
+
+Minimal Outbox setup:
+
+```go
+outbox, err := letterbox.NewOutbox(
+    "example-app",
+    storage,
+    letterbox.WithOutboxConsolePublisher(),
+)
+```
+
+## Inbox API
+
+The Inbox API stores incoming envelopes, then dispatches stored messages to strongly typed handlers.
+
+```go
+inbox, err := letterbox.NewInbox(storage, options...)
+```
+
+`NewInbox` requires:
+
+- `storage`: an implementation of `letterbox.InboxStore`.
+- `options`: `letterbox.InboxOption` values, including a configured consumer.
+
+Available Inbox methods:
+
+| Method | Description |
+| --- | --- |
+| `Receive(envelope Envelope) (bool, error)` | Stores an incoming envelope as a received message. |
+| `Flush() error` | Processes received messages once. |
+| `Start()` | Starts scheduled processing of received messages. |
+| `Stop() error` | Stops the scheduler used by `Start`. |
+
+Handlers are registered with `Subscribe`:
+
+```go
+err := letterbox.Subscribe(inbox, func(event UserCreated) error {
+    // application logic
+    return nil
+})
+```
+
+The current built-in consumer is the HTTP consumer configured with `WithInboxHttpConsumer`. It registers `POST /events` on the provided `*http.ServeMux`.
+
+Minimal Inbox setup:
+
+```go
+mux := http.NewServeMux()
+
+inbox, err := letterbox.NewInbox(
+    storage,
+    letterbox.WithInboxHttpConsumer(mux),
+)
+```
 
 ## Event Model
 
@@ -75,6 +142,21 @@ type Event interface {
 `Type` is the stable event name used outside the Go type system. `Version` must be positive.
 
 When an event is published, Letterbox creates an `Envelope` containing a generated message id, event type, event version, sender, occurrence time and serialized event content.
+
+Incoming HTTP messages are expected to use the same envelope shape:
+
+```json
+{
+  "id": "f90b5c0d-a1b4-4a63-a99c-d6d641cc709a",
+  "type": "hello",
+  "version": 1,
+  "sender": "example-app",
+  "occurredAt": "2026-10-03T07:00:00Z",
+  "content": {
+    "message": "Hello World!"
+  }
+}
+```
 
 ## Outbox Flow
 
@@ -106,21 +188,83 @@ outbox.Start()
 defer outbox.Stop()
 ```
 
-The built-in publisher currently available through public options is the console publisher configured by `WithConsolePublisher`. It logs the envelope with `log/slog`.
+After a pending message is successfully published by the configured publisher, the Outbox marks it as `StatusEmitted`. If publishing fails, it marks the message as `StatusError`.
 
-## Outbox Configuration
+## Inbox Flow
 
-Outbox configuration is provided through options passed to `NewOutbox`.
+The HTTP consumer accepts incoming envelopes on `POST /events` and stores them through `Inbox.Receive`.
+
+```text
+HTTP POST /events -> Inbox.Receive -> InboxStore.Save(StatusReceived)
+```
+
+`Receive` returns:
+
+| Return value | Meaning |
+| --- | --- |
+| `true, nil` | The message was stored. |
+| `false, nil` | The message was already known by storage. |
+| `false, error` | The message could not be accepted. |
+
+The HTTP consumer currently returns `201 Created` for a newly stored message and `200 OK` for a duplicate message.
+
+Received messages can be processed explicitly:
+
+```go
+err := inbox.Flush()
+```
+
+They can also be processed on a schedule:
+
+```go
+inbox.Start()
+defer inbox.Stop()
+```
+
+During processing, the Inbox dispatcher selects a registered handler by envelope type and version, decodes the envelope content into the handler event type and executes the handler. On success the message is marked as `StatusExecuted`. On failure it is marked as `StatusError`.
+
+## Configuration
+
+Outbox and Inbox configuration is provided through options passed to `NewOutbox` and `NewInbox`.
+
+### Outbox Options
 
 | Option | Default | Description |
 | --- | --- | --- |
-| `WithCron(expression)` | `* * * * *` | Sets the five-field cron expression used by scheduled processing. |
-| `WithPendingLimit(limit)` | `0` | Limits how many pending messages are loaded per processing run. `0` means no limit. |
-| `WithConsolePublisher()` | enabled by default | Uses the console publisher that logs published envelopes. |
+| `WithOutboxCron(expression)` | `* * * * *` | Sets the five-field cron expression used by scheduled Outbox processing. |
+| `WithOutboxInterval(interval)` | none | Uses a `time.Duration` interval instead of cron scheduling. |
+| `WithOutboxPendingLimit(limit)` | `0` | Limits how many pending messages are loaded per processing run. `0` means no limit. |
+| `WithOutboxConsolePublisher()` | required | Uses the console publisher that logs published envelopes. |
 
-Configuration validation rejects empty senders, nil storage, invalid cron expressions, negative pending limits and nil publisher configuration.
+### Inbox Options
 
-## Outbox Storage Contract
+| Option | Default | Description |
+| --- | --- | --- |
+| `WithInboxCron(expression)` | `* * * * *` | Sets the five-field cron expression used by scheduled Inbox processing. |
+| `WithInboxInterval(interval)` | none | Uses a `time.Duration` interval instead of cron scheduling. |
+| `WithInboxReceivedLimit(limit)` | `0` | Limits how many received messages are loaded per processing run. `0` means no limit. |
+| `WithInboxHttpConsumer(mux)` | required | Registers the HTTP consumer on the provided `*http.ServeMux`. |
+
+Cron scheduling uses five-field expressions, for example:
+
+```go
+letterbox.WithInboxCron("* * * * *")
+```
+
+Interval scheduling uses `time.Duration`, for example:
+
+```go
+letterbox.WithInboxInterval(time.Second)
+letterbox.WithOutboxInterval(time.Minute)
+```
+
+If both cron and interval options are provided, the last option applied determines the active scheduling mode.
+
+Configuration validation rejects empty senders, nil storage, invalid cron expressions, non-positive intervals, negative limits and missing publisher or consumer configuration.
+
+## Storage Contracts
+
+### Outbox Storage
 
 Applications provide Outbox persistence by implementing `letterbox.OutboxStore`:
 
@@ -140,14 +284,54 @@ The Outbox uses this contract as follows:
 | `Pending` | Loads messages selected for processing. |
 | `UpdateStatus` | Marks processed messages as `StatusEmitted` or `StatusError`. |
 
+### Inbox Storage
+
+Applications provide Inbox persistence by implementing `letterbox.InboxStore`:
+
+```go
+type InboxStore interface {
+    Save(message Message) (bool, error)
+    Received(limit int) ([]Message, error)
+    UpdateStatus(key MessageKey, status Status) error
+}
+```
+
+The Inbox uses this contract as follows:
+
+| Method | Used For |
+| --- | --- |
+| `Save` | Stores an incoming message with `StatusReceived`. Returning `false, nil` indicates that the message was already known by storage. |
+| `Received` | Loads received messages selected for processing. |
+| `UpdateStatus` | Marks processed messages as `StatusExecuted` or `StatusError`. |
+
 Storage implementation details are left to the application or adapter using the library.
 
-## Example Usage
+## Examples
 
-The repository contains a runnable Outbox example in [`examples/outbox_console/main.go`](examples/outbox_console/main.go). It defines an event, implements an in-memory `OutboxStore`, publishes a message and flushes the Outbox through the console publisher.
+The repository contains runnable examples for the current Outbox and Inbox flows.
+
+### Outbox Console
+
+[`examples/outbox_console/main.go`](examples/outbox_console/main.go) defines an event, implements an in-memory `OutboxStore`, publishes a message and flushes the Outbox through the console publisher.
 
 Run it with:
 
 ```bash
 make outbox_console
+```
+
+### Inbox HTTP
+
+[`examples/inbox_http/main.go`](examples/inbox_http/main.go) defines an event, implements an in-memory `InboxStore`, registers an HTTP consumer and processes received messages every second.
+
+Run it with:
+
+```bash
+make inbox_http
+```
+
+Send an example event with:
+
+```bash
+./examples/inbox_http/request.sh
 ```

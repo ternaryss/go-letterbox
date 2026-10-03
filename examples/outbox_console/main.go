@@ -25,7 +25,7 @@ type OutboxRepo struct {
 }
 
 func NewOutboxRepo() *OutboxRepo {
-	return &OutboxRepo{make(map[string]letterbox.Message)}
+	return &OutboxRepo{messages: make(map[string]letterbox.Message)}
 }
 
 func (r *OutboxRepo) Save(message letterbox.Message) error {
@@ -76,7 +76,7 @@ func main() {
 	outbox, err := letterbox.NewOutbox(
 		"example-app",
 		storage,
-		letterbox.WithConsolePublisher(),
+		letterbox.WithOutboxConsolePublisher(),
 	)
 
 	if err != nil {

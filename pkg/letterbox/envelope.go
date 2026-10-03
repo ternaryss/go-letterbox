@@ -3,6 +3,7 @@ package letterbox
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -44,4 +45,42 @@ func encode[T Event](event T, sender string) (Envelope, error) {
 		OccurredAt: time.Now().UTC(),
 		Content:    content,
 	}, nil
+}
+
+func decode[T Event](envelope Envelope) (T, error) {
+	var event T
+
+	if envelope.Type == "" {
+		return event, errors.New("envelope type is empty")
+	}
+
+	if envelope.Version <= 0 {
+		return event, errors.New("envelope version must be positive")
+	}
+
+	if len(envelope.Content) == 0 {
+		return event, errors.New("envelope content is empty")
+	}
+
+	if err := json.Unmarshal(envelope.Content, &event); err != nil {
+		return event, err
+	}
+
+	if event.Type() == "" {
+		return event, errors.New("event type is empty")
+	}
+
+	if event.Version() <= 0 {
+		return event, errors.New("event version must be positive")
+	}
+
+	if event.Type() != envelope.Type {
+		return event, fmt.Errorf("event type mismatch: envelope %q, event %q", envelope.Type, event.Type())
+	}
+
+	if event.Version() != envelope.Version {
+		return event, fmt.Errorf("event version mismatch: envelope %d, event %d", envelope.Version, event.Version())
+	}
+
+	return event, nil
 }
