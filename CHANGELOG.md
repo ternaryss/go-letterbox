@@ -2,7 +2,7 @@
 
 History of **letterbox** library with changes description.
 
-## Next release
+## v0.1.0 (2026-10-03)
 
 - `FEATURE` Dummy (HTTP) inbox implementation
 - `FEATURE` Inbox API
