@@ -1,0 +1,9 @@
+{
+	"name": "Go",
+	"image": "mcr.microsoft.com/devcontainers/go:1.27-trixie",
+	"postCreateCommand": "chmod +x .devcontainer/neovim.sh && ./.devcontainer/neovim.sh",
+	"forwardPorts": [8080],
+	"containerEnv": {
+		"TZ": "Europe/Warsaw"
+	}
+}

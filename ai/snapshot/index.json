@@ -1,0 +1,71 @@
+[
+  {
+    "id": "event-envelope-model",
+    "name": "Event Envelope Model",
+    "description": "Application event contract and envelope used for persistence and transport.",
+    "file": "data/event-envelope-model.json",
+    "keywords": [
+      "event",
+      "envelope",
+      "message",
+      "status",
+      "encode",
+      "decode"
+    ]
+  },
+  {
+    "id": "publish-outbox-event",
+    "name": "Publish Outbox Event",
+    "description": "Publishing a strongly typed event to the durable Outbox.",
+    "file": "data/publish-outbox-event.json",
+    "keywords": [
+      "outbox",
+      "publish",
+      "store",
+      "pending"
+    ]
+  },
+  {
+    "id": "process-outbox-pending",
+    "name": "Process Outbox Pending",
+    "description": "Loading pending Outbox messages and recording the publishing result.",
+    "file": "data/process-outbox-pending.json",
+    "keywords": [
+      "outbox",
+      "worker",
+      "flush",
+      "publisher",
+      "cron",
+      "interval"
+    ]
+  },
+  {
+    "id": "receive-inbox-http-event",
+    "name": "Receive Inbox HTTP Event",
+    "description": "Receiving an HTTP envelope and storing it in the durable Inbox.",
+    "file": "data/receive-inbox-http-event.json",
+    "keywords": [
+      "inbox",
+      "http",
+      "consumer",
+      "receive",
+      "duplicate"
+    ]
+  },
+  {
+    "id": "process-inbox-received",
+    "name": "Process Inbox Received",
+    "description": "Loading received Inbox messages and dispatching them to typed handlers.",
+    "file": "data/process-inbox-received.json",
+    "keywords": [
+      "inbox",
+      "worker",
+      "flush",
+      "subscribe",
+      "dispatcher",
+      "handler",
+      "cron",
+      "interval"
+    ]
+  }
+]

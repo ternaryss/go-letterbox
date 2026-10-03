@@ -1,0 +1,50 @@
+{
+  "name": "Process Outbox Pending",
+  "description": "Manual or scheduled processing of pending Outbox messages through a publisher, with result status updates.",
+  "entrypoints": [
+    {
+      "type": "api",
+      "path": "Outbox.Flush()",
+      "file": "./pkg/letterbox/outbox.go",
+      "symbol": "Outbox.Flush"
+    },
+    {
+      "type": "scheduler",
+      "path": "Outbox.Start()",
+      "file": "./pkg/letterbox/outbox.go",
+      "symbol": "Outbox.Start"
+    }
+  ],
+  "files": [
+    {
+      "path": "./pkg/letterbox/outbox_worker.go",
+      "role": "worker",
+      "priority": 1,
+      "description": "Loads pending messages, calls the publisher, and updates message status."
+    },
+    {
+      "path": "./pkg/letterbox/outbox.go",
+      "role": "service-entrypoint",
+      "priority": 1,
+      "description": "Exposes Start, Stop, and Flush for Outbox processing."
+    },
+    {
+      "path": "./pkg/letterbox/outbox_config.go",
+      "role": "configuration",
+      "priority": 2,
+      "description": "Configures cron or interval scheduling, pending message limit, and publisher."
+    },
+    {
+      "path": "./pkg/letterbox/publishers.go",
+      "role": "publisher-adapter",
+      "priority": 2,
+      "description": "Defines the publisher contract and console adapter."
+    },
+    {
+      "path": "./pkg/letterbox/stores.go",
+      "role": "repository-contract",
+      "priority": 2,
+      "description": "Defines pending message loading and Outbox status updates."
+    }
+  ]
+}

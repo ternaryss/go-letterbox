@@ -1,0 +1,44 @@
+{
+  "name": "Receive Inbox HTTP Event",
+  "description": "Accepts an incoming HTTP event envelope and stores it in the durable Inbox.",
+  "entrypoints": [
+    {
+      "type": "http",
+      "path": "POST /events",
+      "file": "./pkg/letterbox/consumers.go",
+      "symbol": "httpConsumer.register"
+    },
+    {
+      "type": "api",
+      "path": "Inbox.Receive(envelope)",
+      "file": "./pkg/letterbox/inbox.go",
+      "symbol": "Inbox.Receive"
+    }
+  ],
+  "files": [
+    {
+      "path": "./pkg/letterbox/consumers.go",
+      "role": "http-consumer",
+      "priority": 1,
+      "description": "Registers the HTTP endpoint that receives envelopes and passes them to Inbox."
+    },
+    {
+      "path": "./pkg/letterbox/inbox.go",
+      "role": "main-service",
+      "priority": 1,
+      "description": "Validates incoming envelopes and stores them as received messages."
+    },
+    {
+      "path": "./pkg/letterbox/inbox_config.go",
+      "role": "configuration",
+      "priority": 2,
+      "description": "Configures the required consumer and Inbox processing schedule."
+    },
+    {
+      "path": "./pkg/letterbox/stores.go",
+      "role": "repository-contract",
+      "priority": 2,
+      "description": "Defines the Inbox persistence contract and duplicate-aware save result."
+    }
+  ]
+}
