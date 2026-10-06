@@ -35,6 +35,8 @@
       "worker",
       "flush",
       "publisher",
+      "rabbitmq",
+      "amqp",
       "cron",
       "interval"
     ]

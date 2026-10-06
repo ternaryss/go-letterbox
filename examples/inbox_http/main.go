@@ -46,6 +46,21 @@ func (r *InboxRepo) Save(message letterbox.Message) (bool, error) {
 	return true, nil
 }
 
+func (r *InboxRepo) UpdateStatus(key letterbox.MessageKey, status letterbox.Status) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	message, exists := r.messages[key]
+
+	if !exists {
+		return fmt.Errorf("message %q from sender %q not found", key.Id, key.Sender)
+	}
+
+	message.Status = status
+	r.messages[key] = message
+
+	return nil
+}
+
 func (r *InboxRepo) Received(limit int) ([]letterbox.Message, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -64,21 +79,6 @@ func (r *InboxRepo) Received(limit int) ([]letterbox.Message, error) {
 	}
 
 	return messages, nil
-}
-
-func (r *InboxRepo) UpdateStatus(key letterbox.MessageKey, status letterbox.Status) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	message, exists := r.messages[key]
-
-	if !exists {
-		return fmt.Errorf("message %q from sender %q not found", key.Id, key.Sender)
-	}
-
-	message.Status = status
-	r.messages[key] = message
-
-	return nil
 }
 
 func main() {

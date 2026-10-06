@@ -87,7 +87,10 @@ Available Outbox methods:
 | `Start()` | Starts scheduled processing of pending messages. |
 | `Stop() error` | Stops the scheduler used by `Start`. |
 
-The current built-in publisher is the console publisher configured with `WithOutboxConsolePublisher`. It logs published envelopes with `log/slog`.
+The built-in publishers are:
+
+- `WithOutboxConsolePublisher()` - logs published envelopes with `log/slog`.
+- `WithOutboxRabbitMqPublisher(url, exchange, timeout)` - publishes envelopes to RabbitMQ.
 
 Minimal Outbox setup:
 
@@ -96,6 +99,20 @@ outbox, err := letterbox.NewOutbox(
     "example-app",
     storage,
     letterbox.WithOutboxConsolePublisher(),
+)
+```
+
+RabbitMQ Outbox setup:
+
+```go
+outbox, err := letterbox.NewOutbox(
+    "example-app",
+    storage,
+    letterbox.WithOutboxRabbitMqPublisher(
+        "amqp://admin:admin@rabbitmq:5672/",
+        "letterbox.events",
+        5*time.Second,
+    ),
 )
 ```
 
@@ -205,6 +222,8 @@ defer outbox.Stop()
 
 After a pending message is successfully published by the configured publisher, the Outbox marks it as `StatusEmitted`. If publishing fails, it marks the message as `StatusError`.
 
+The RabbitMQ publisher sends the full `Envelope` as JSON to the configured exchange and uses `Envelope.Type` as the routing key. It uses mandatory publishing and publisher confirms, so an unroutable message or a negative broker confirmation is treated as a publishing failure.
+
 ## Inbox Flow
 
 The HTTP consumer accepts incoming envelopes on `POST /events` and stores them through `Inbox.Receive`.
@@ -250,6 +269,9 @@ Outbox and Inbox configuration is provided through options passed to `NewOutbox`
 | `WithOutboxInterval(interval)` | none | Uses a `time.Duration` interval instead of cron scheduling. |
 | `WithOutboxPendingLimit(limit)` | `0` | Limits how many pending messages are loaded per processing run. `0` means no limit. |
 | `WithOutboxConsolePublisher()` | required | Uses the console publisher that logs published envelopes. |
+| `WithOutboxRabbitMqPublisher(url, exchange, timeout)` | required | Uses RabbitMQ as the Outbox publisher. It publishes envelopes to the configured exchange using the envelope type as the routing key. |
+
+The RabbitMQ publisher requires an existing exchange. The exchange must have a binding that matches the event type used as the routing key. If no queue can be routed for the published event and RabbitMQ returns the message as unroutable, the Outbox marks the message as `StatusError`.
 
 ### Inbox Options
 
@@ -334,6 +356,42 @@ Run it with:
 ```bash
 make outbox_console
 ```
+
+### Outbox RabbitMQ
+
+[`examples/outbox_rabbitmq/main.go`](examples/outbox_rabbitmq/main.go) defines an event, implements an in-memory `OutboxStore`, publishes a message and flushes the Outbox through the RabbitMQ publisher.
+
+The example includes a RabbitMQ Compose setup:
+
+- [`examples/outbox_rabbitmq/docker-compose.yml`](examples/outbox_rabbitmq/docker-compose.yml) starts RabbitMQ with the management plugin.
+- [`examples/outbox_rabbitmq/rabbitmq.conf`](examples/outbox_rabbitmq/rabbitmq.conf) loads definitions on startup.
+- [`examples/outbox_rabbitmq/definitions.json`](examples/outbox_rabbitmq/definitions.json) defines the example user, exchange, queue and binding.
+
+The Compose setup expects a Docker network named `letterbox`. Create it once with:
+
+```bash
+docker network create -d bridge letterbox
+```
+
+Start RabbitMQ with:
+
+```bash
+docker compose -f examples/outbox_rabbitmq/docker-compose.yml up -d
+```
+
+The example Compose setup exposes RabbitMQ on `5672` and the management UI on `15672`.
+
+Run the example with:
+
+```bash
+make outbox_rabbitmq
+```
+
+The RabbitMQ definitions configure the `letterbox.events` exchange, the `letterbox.hello` queue and a `hello` binding. Since the example event type is `hello`, the message is routed to `letterbox.hello`.
+
+To verify the message, open the RabbitMQ Management UI at `http://localhost:15672`, log in with the credentials from [`examples/outbox_rabbitmq/definitions.json`](examples/outbox_rabbitmq/definitions.json), open the `letterbox.hello` queue and use **Get messages** with requeue enabled.
+
+The project is developed in a devcontainer attached to the `letterbox` Docker network, so the example uses the `rabbitmq` host name in its AMQP URL. If you run the Go example directly on the host machine, change the URL in [`examples/outbox_rabbitmq/main.go`](examples/outbox_rabbitmq/main.go) from `rabbitmq:5672` to `localhost:5672`.
 
 ### Inbox HTTP
 

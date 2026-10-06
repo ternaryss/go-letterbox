@@ -2,10 +2,6 @@ package letterbox
 
 import "log/slog"
 
-type publisher interface {
-	publish(envelope Envelope) error
-}
-
 type consolePublisher struct{}
 
 func newConsolePublisher() *consolePublisher {
@@ -18,5 +14,9 @@ func (p *consolePublisher) publish(envelope Envelope) error {
 		"sender", envelope.Sender, "occurredAt", envelope.OccurredAt, "content", string(envelope.Content),
 	)
 
+	return nil
+}
+
+func (p *consolePublisher) close() error {
 	return nil
 }
