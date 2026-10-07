@@ -35,6 +35,8 @@
       "worker",
       "flush",
       "publisher",
+      "rabbitmq",
+      "amqp",
       "cron",
       "interval"
     ]
@@ -49,6 +51,22 @@
       "http",
       "consumer",
       "receive",
+      "duplicate"
+    ]
+  },
+  {
+    "id": "receive-inbox-rabbitmq-event",
+    "name": "Receive Inbox RabbitMQ Event",
+    "description": "Receiving a RabbitMQ envelope and storing it in the durable Inbox.",
+    "file": "data/receive-inbox-rabbitmq-event.json",
+    "keywords": [
+      "inbox",
+      "rabbitmq",
+      "amqp",
+      "consumer",
+      "receive",
+      "ack",
+      "nack",
       "duplicate"
     ]
   },

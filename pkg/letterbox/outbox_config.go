@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-type OutboxOption func(*outboxConfig)
+type OutboxOption func(*outboxConfig) error
 
 type outboxConfig struct {
 	scheduleMode scheduleMode
@@ -26,59 +26,64 @@ func defaultOutboxConfig() outboxConfig {
 	}
 }
 
-func (c outboxConfig) validate() error {
-	switch c.scheduleMode {
-	case modeCron:
-		cronFields := strings.Fields(c.cron)
-
-		if len(cronFields) != 5 {
+func WithOutboxCron(expression string) OutboxOption {
+	return func(config *outboxConfig) error {
+		if len(strings.Fields(expression)) != 5 {
 			return errors.New("invalid outbox cron expression")
 		}
 
-	case modeInterval:
-		if c.interval <= 0 {
-			return errors.New("invalid outbox interval")
-		}
-
-	default:
-		return errors.New("invalid outbox schedule mode")
-	}
-
-	if c.pendingLimit < 0 {
-		return errors.New("invalid outbox pending limit")
-	}
-
-	if c.publisher == nil {
-		return errors.New("outbox publisher is nil")
-	}
-
-	return nil
-}
-
-func WithOutboxCron(expression string) OutboxOption {
-	return func(config *outboxConfig) {
 		config.scheduleMode = modeCron
 		config.cron = expression
 		config.interval = 0
+
+		return nil
 	}
 }
 
 func WithOutboxInterval(interval time.Duration) OutboxOption {
-	return func(config *outboxConfig) {
+	return func(config *outboxConfig) error {
+		if interval <= 0 {
+			return errors.New("invalid outbox interval")
+		}
+
 		config.scheduleMode = modeInterval
 		config.interval = interval
 		config.cron = ""
+
+		return nil
 	}
 }
 
 func WithOutboxPendingLimit(limit int) OutboxOption {
-	return func(config *outboxConfig) {
+	return func(config *outboxConfig) error {
+		if limit < 0 {
+			return errors.New("invalid outbox pending limit")
+		}
+
 		config.pendingLimit = limit
+
+		return nil
 	}
 }
 
 func WithOutboxConsolePublisher() OutboxOption {
-	return func(config *outboxConfig) {
+	return func(config *outboxConfig) error {
 		config.publisher = newConsolePublisher()
+
+		return nil
+	}
+}
+
+func WithOutboxRabbitMqPublisher(url, exchange string, timeout time.Duration) OutboxOption {
+	return func(config *outboxConfig) error {
+		publisher, err := newRabbitMqPublisher(url, exchange, timeout)
+
+		if err != nil {
+			return err
+		}
+
+		config.publisher = publisher
+
+		return nil
 	}
 }

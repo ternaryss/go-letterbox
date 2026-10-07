@@ -3,9 +3,10 @@ package main
 import (
 	"fmt"
 	"log/slog"
-	"net/http"
 	"os"
+	"os/signal"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/ternaryss/go-letterbox/pkg/letterbox"
@@ -82,12 +83,14 @@ func (r *InboxRepo) Received(limit int) ([]letterbox.Message, error) {
 }
 
 func main() {
-	mux := http.NewServeMux()
 	storage := NewInboxRepo()
 	inbox, err := letterbox.NewInbox(
 		storage,
 		letterbox.WithInboxInterval(time.Second),
-		letterbox.WithInboxHttpConsumer(mux),
+		letterbox.WithInboxRabbitMqConsumer(
+			"amqp://admin:admin@rabbitmq:5672/",
+			"example.inbox",
+		),
 	)
 
 	if err != nil {
@@ -104,16 +107,15 @@ func main() {
 	}
 
 	inbox.Start()
+
 	defer func() {
 		if err := inbox.Stop(); err != nil {
 			slog.Error("Failed to stop inbox", "err", err)
 		}
 	}()
 
-	slog.Info("Starting HTTP inbox consumer", "addr", ":8080", "path", "POST /events")
-
-	if err := http.ListenAndServe("0.0.0.0:8080", mux); err != nil {
-		slog.Error("HTTP server failed", "err", err)
-		os.Exit(1)
-	}
+	slog.Info("Starting RabbitMQ inbox consumer", "queue", "example.inbox")
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
+	<-signals
 }

@@ -1,1 +1,5 @@
+# Docker network on host for RabbitMQ from devcontainer testing
+docker network create -d bridge letterbox
+
+# Inside Neovim (devcontainer)
 :MasonInstall gopls

@@ -16,11 +16,13 @@ func NewInbox(storage InboxStore, options ...InboxOption) (*Inbox, error) {
 	config := defaultInboxConfig()
 
 	for _, option := range options {
-		option(&config)
+		if err := option(&config); err != nil {
+			return nil, err
+		}
 	}
 
-	if err := config.validate(); err != nil {
-		return nil, err
+	if config.consumer == nil {
+		return nil, errors.New("inbox consumer is nil")
 	}
 
 	dispatcher := newDispatcher()
@@ -44,7 +46,7 @@ func (i *Inbox) Start() {
 }
 
 func (i *Inbox) Stop() error {
-	return i.worker.scheduler.Shutdown()
+	return errors.Join(i.worker.scheduler.Shutdown(), i.worker.consumer.close())
 }
 
 func (i *Inbox) Flush() error {
@@ -52,20 +54,8 @@ func (i *Inbox) Flush() error {
 }
 
 func (i *Inbox) Receive(envelope Envelope) (bool, error) {
-	if envelope.Id == "" {
-		return false, errors.New("envelope id is empty")
-	}
-
-	if envelope.Type == "" {
-		return false, errors.New("envelope type is empty")
-	}
-
-	if envelope.Version <= 0 {
-		return false, errors.New("envelope version must be positive")
-	}
-
-	if envelope.Sender == "" {
-		return false, errors.New("envelope sender is empty")
+	if err := envelope.validate(); err != nil {
+		return false, err
 	}
 
 	message := newMessage(envelope, StatusReceived)

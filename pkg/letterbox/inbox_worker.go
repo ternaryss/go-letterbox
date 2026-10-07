@@ -10,6 +10,7 @@ type inboxWorker struct {
 	config     inboxConfig
 	storage    InboxStore
 	dispatcher *dispatcher
+	consumer   consumer
 	scheduler  gocron.Scheduler
 }
 
@@ -20,7 +21,9 @@ func newInboxWorker(storage InboxStore, dispatcher *dispatcher, config inboxConf
 		return nil, err
 	}
 
-	worker := &inboxWorker{config: config, storage: storage, dispatcher: dispatcher, scheduler: scheduler}
+	worker := &inboxWorker{
+		config: config, storage: storage, dispatcher: dispatcher, consumer: config.consumer, scheduler: scheduler,
+	}
 	var job gocron.JobDefinition
 
 	switch config.scheduleMode {

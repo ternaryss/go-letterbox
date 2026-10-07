@@ -1,12 +1,12 @@
 {
-  "name": "Receive Inbox HTTP Event",
-  "description": "Accepts an incoming HTTP event envelope and stores it in the durable Inbox.",
+  "name": "Receive Inbox RabbitMQ Event",
+  "description": "Consumes RabbitMQ event envelopes and stores accepted messages in the durable Inbox.",
   "entrypoints": [
     {
-      "type": "http",
-      "path": "POST /events",
-      "file": "./pkg/letterbox/http_consumer.go",
-      "symbol": "httpConsumer.register"
+      "type": "consumer",
+      "path": "RabbitMQ queue delivery",
+      "file": "./pkg/letterbox/rabbitmq_consumer.go",
+      "symbol": "rabbitMqConsumer.register"
     },
     {
       "type": "api",
@@ -17,10 +17,10 @@
   ],
   "files": [
     {
-      "path": "./pkg/letterbox/http_consumer.go",
-      "role": "http-consumer",
+      "path": "./pkg/letterbox/rabbitmq_consumer.go",
+      "role": "rabbitmq-consumer",
       "priority": 1,
-      "description": "Registers the HTTP endpoint that receives envelopes and passes them to Inbox."
+      "description": "Consumes envelopes from an existing queue and maps receive results to RabbitMQ acknowledgements."
     },
     {
       "path": "./pkg/letterbox/inbox.go",
@@ -33,6 +33,12 @@
       "role": "configuration",
       "priority": 2,
       "description": "Configures the required consumer and Inbox processing schedule."
+    },
+    {
+      "path": "./pkg/letterbox/envelope.go",
+      "role": "envelope-validation",
+      "priority": 2,
+      "description": "Defines the envelope accepted at transport and persistence boundaries."
     },
     {
       "path": "./pkg/letterbox/stores.go",

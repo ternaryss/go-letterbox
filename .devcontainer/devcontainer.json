@@ -5,5 +5,8 @@
 	"forwardPorts": [8080],
 	"containerEnv": {
 		"TZ": "Europe/Warsaw"
-	}
+	},
+	"runArgs": [
+		"--network=letterbox"
+	]
 }

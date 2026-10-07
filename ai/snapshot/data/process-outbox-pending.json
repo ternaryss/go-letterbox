@@ -32,13 +32,25 @@
       "path": "./pkg/letterbox/outbox_config.go",
       "role": "configuration",
       "priority": 2,
-      "description": "Configures cron or interval scheduling, pending message limit, and publisher."
+      "description": "Configures cron or interval scheduling, pending message limit, and publisher selection."
     },
     {
-      "path": "./pkg/letterbox/publishers.go",
-      "role": "publisher-adapter",
+      "path": "./pkg/letterbox/publisher.go",
+      "role": "publisher-contract",
       "priority": 2,
-      "description": "Defines the publisher contract and console adapter."
+      "description": "Defines the internal publisher contract used by Outbox processing."
+    },
+    {
+      "path": "./pkg/letterbox/rabbitmq_publisher.go",
+      "role": "transport-adapter",
+      "priority": 2,
+      "description": "RabbitMQ publisher adapter for emitting pending Outbox messages."
+    },
+    {
+      "path": "./pkg/letterbox/console_publisher.go",
+      "role": "publisher-adapter",
+      "priority": 3,
+      "description": "Console publisher adapter used for the dummy Outbox flow."
     },
     {
       "path": "./pkg/letterbox/stores.go",

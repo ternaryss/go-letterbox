@@ -20,11 +20,13 @@ func NewOutbox(sender string, storage OutboxStore, options ...OutboxOption) (*Ou
 	config := defaultOutboxConfig()
 
 	for _, option := range options {
-		option(&config)
+		if err := option(&config); err != nil {
+			return nil, err
+		}
 	}
 
-	if err := config.validate(); err != nil {
-		return nil, err
+	if config.publisher == nil {
+		return nil, errors.New("outbox publisher is nil")
 	}
 
 	worker, err := newOutboxWorker(storage, config)
@@ -41,7 +43,7 @@ func (o *Outbox) Start() {
 }
 
 func (o *Outbox) Stop() error {
-	return o.worker.scheduler.Shutdown()
+	return errors.Join(o.worker.scheduler.Shutdown(), o.worker.publisher.close())
 }
 
 func (o *Outbox) Flush() error {

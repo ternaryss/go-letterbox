@@ -84,3 +84,35 @@ func decode[T Event](envelope Envelope) (T, error) {
 
 	return event, nil
 }
+
+func (e *Envelope) validate() error {
+	if e.Id == "" {
+		return errors.New("envelope id is empty")
+	}
+
+	if e.Type == "" {
+		return errors.New("envelope type is empty")
+	}
+
+	if e.Version <= 0 {
+		return errors.New("envelope version must be positive")
+	}
+
+	if e.Sender == "" {
+		return errors.New("envelope sender is empty")
+	}
+
+	if e.OccurredAt.IsZero() {
+		return errors.New("envelope occurred at is empty")
+	}
+
+	if len(e.Content) == 0 {
+		return errors.New("envelope content is empty")
+	}
+
+	if string(e.Content) == "null" {
+		return errors.New("envelope content is null")
+	}
+
+	return nil
+}
