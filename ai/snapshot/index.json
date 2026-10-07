@@ -55,6 +55,22 @@
     ]
   },
   {
+    "id": "receive-inbox-rabbitmq-event",
+    "name": "Receive Inbox RabbitMQ Event",
+    "description": "Receiving a RabbitMQ envelope and storing it in the durable Inbox.",
+    "file": "data/receive-inbox-rabbitmq-event.json",
+    "keywords": [
+      "inbox",
+      "rabbitmq",
+      "amqp",
+      "consumer",
+      "receive",
+      "ack",
+      "nack",
+      "duplicate"
+    ]
+  },
+  {
     "id": "process-inbox-received",
     "name": "Process Inbox Received",
     "description": "Loading received Inbox messages and dispatching them to typed handlers.",

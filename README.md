@@ -136,7 +136,7 @@ Available Inbox methods:
 | `Receive(envelope Envelope) (bool, error)` | Stores an incoming envelope as a received message. |
 | `Flush() error` | Processes received messages once. |
 | `Start()` | Starts scheduled processing of received messages. |
-| `Stop() error` | Stops the scheduler used by `Start`. |
+| `Stop() error` | Stops the scheduler used by `Start` and closes the configured consumer. |
 
 Handlers are registered with `Subscribe`:
 
@@ -147,7 +147,10 @@ err := letterbox.Subscribe(inbox, func(event UserCreated) error {
 })
 ```
 
-The current built-in consumer is the HTTP consumer configured with `WithInboxHttpConsumer`. It registers `POST /events` on the provided `*http.ServeMux`.
+The built-in consumers are:
+
+- `WithInboxHttpConsumer(mux)` - registers `POST /events` on the provided `*http.ServeMux`.
+- `WithInboxRabbitMqConsumer(url, queue)` - consumes envelopes from an existing RabbitMQ queue.
 
 Minimal Inbox setup:
 
@@ -157,6 +160,19 @@ mux := http.NewServeMux()
 inbox, err := letterbox.NewInbox(
     storage,
     letterbox.WithInboxHttpConsumer(mux),
+)
+```
+
+RabbitMQ Inbox setup:
+
+```go
+inbox, err := letterbox.NewInbox(
+    storage,
+    letterbox.WithInboxInterval(time.Second),
+    letterbox.WithInboxRabbitMqConsumer(
+        "amqp://admin:admin@rabbitmq:5672/",
+        "example.inbox",
+    ),
 )
 ```
 
@@ -232,6 +248,12 @@ The HTTP consumer accepts incoming envelopes on `POST /events` and stores them t
 HTTP POST /events -> Inbox.Receive -> InboxStore.Save(StatusReceived)
 ```
 
+The RabbitMQ consumer reads JSON envelopes from the configured queue and stores them through the same `Inbox.Receive` API.
+
+```text
+RabbitMQ delivery -> Inbox.Receive -> InboxStore.Save(StatusReceived) -> ACK
+```
+
 `Receive` returns:
 
 | Return value | Meaning |
@@ -241,6 +263,17 @@ HTTP POST /events -> Inbox.Receive -> InboxStore.Save(StatusReceived)
 | `false, error` | The message could not be accepted. |
 
 The HTTP consumer currently returns `201 Created` for a newly stored message and `200 OK` for a duplicate message.
+
+The RabbitMQ consumer acknowledges transport delivery only after the envelope has been accepted by the Inbox:
+
+| Condition | RabbitMQ action |
+| --- | --- |
+| Invalid JSON or invalid envelope | Reject without requeue. |
+| `InboxStore.Save` error | Nack with requeue. |
+| Newly stored message | Ack. |
+| Duplicate message | Ack. |
+
+RabbitMQ consumption is started when the Inbox is created. `Start` only starts scheduled processing of messages already stored with `StatusReceived`.
 
 Received messages can be processed explicitly:
 
@@ -281,6 +314,7 @@ The RabbitMQ publisher requires an existing exchange. The exchange must have a b
 | `WithInboxInterval(interval)` | none | Uses a `time.Duration` interval instead of cron scheduling. |
 | `WithInboxReceivedLimit(limit)` | `0` | Limits how many received messages are loaded per processing run. `0` means no limit. |
 | `WithInboxHttpConsumer(mux)` | required | Registers the HTTP consumer on the provided `*http.ServeMux`. |
+| `WithInboxRabbitMqConsumer(url, queue)` | required | Uses RabbitMQ as the Inbox consumer. It consumes envelopes from the configured queue. |
 
 Cron scheduling uses five-field expressions, for example:
 
@@ -298,6 +332,10 @@ letterbox.WithOutboxInterval(time.Minute)
 If both cron and interval options are provided, the last option applied determines the active scheduling mode.
 
 Configuration validation rejects empty senders, nil storage, invalid cron expressions, non-positive intervals, negative limits and missing publisher or consumer configuration.
+
+The RabbitMQ Inbox consumer requires an existing queue. It does not declare exchanges, queues or bindings. RabbitMQ topology and routing are configured outside the library, for example through a RabbitMQ `definitions.json` file.
+
+Only one Inbox consumer option is required for a given Inbox instance.
 
 ## Storage Contracts
 
@@ -387,9 +425,9 @@ Run the example with:
 make outbox_rabbitmq
 ```
 
-The RabbitMQ definitions configure the `letterbox.events` exchange, the `letterbox.hello` queue and a `hello` binding. Since the example event type is `hello`, the message is routed to `letterbox.hello`.
+The RabbitMQ definitions configure the `letterbox.events` topic exchange, the `example.inbox` queue and a `#` binding. Since the publisher uses the envelope type as the routing key, RabbitMQ topology controls which application inbox queue receives each event.
 
-To verify the message, open the RabbitMQ Management UI at `http://localhost:15672`, log in with the credentials from [`examples/outbox_rabbitmq/definitions.json`](examples/outbox_rabbitmq/definitions.json), open the `letterbox.hello` queue and use **Get messages** with requeue enabled.
+To verify the message, open the RabbitMQ Management UI at `http://localhost:15672`, log in with the credentials from [`examples/outbox_rabbitmq/definitions.json`](examples/outbox_rabbitmq/definitions.json), open the `example.inbox` queue and use **Get messages** with requeue enabled.
 
 The project is developed in a devcontainer attached to the `letterbox` Docker network, so the example uses the `rabbitmq` host name in its AMQP URL. If you run the Go example directly on the host machine, change the URL in [`examples/outbox_rabbitmq/main.go`](examples/outbox_rabbitmq/main.go) from `rabbitmq:5672` to `localhost:5672`.
 
@@ -408,3 +446,48 @@ Send an example event with:
 ```bash
 ./examples/inbox_http/request.sh
 ```
+
+### Inbox RabbitMQ
+
+[`examples/inbox_rabbitmq/main.go`](examples/inbox_rabbitmq/main.go) defines an event, implements an in-memory `InboxStore`, consumes envelopes from RabbitMQ and processes received messages every second.
+
+The example includes a RabbitMQ Compose setup:
+
+- [`examples/inbox_rabbitmq/docker-compose.yml`](examples/inbox_rabbitmq/docker-compose.yml) starts RabbitMQ with the management plugin.
+- [`examples/inbox_rabbitmq/rabbitmq.conf`](examples/inbox_rabbitmq/rabbitmq.conf) loads definitions on startup.
+- [`examples/inbox_rabbitmq/definitions.json`](examples/inbox_rabbitmq/definitions.json) defines the example user, topic exchange, inbox queue and binding.
+
+The Compose setup expects a Docker network named `letterbox`. Create it once with:
+
+```bash
+docker network create -d bridge letterbox
+```
+
+Start RabbitMQ with:
+
+```bash
+docker compose -f examples/inbox_rabbitmq/docker-compose.yml up -d
+```
+
+Run the example with:
+
+```bash
+make inbox_rabbitmq
+```
+
+The example consumes from the `example.inbox` queue. To send a message manually, open the RabbitMQ Management UI at `http://localhost:15672`, log in with the credentials from [`examples/inbox_rabbitmq/definitions.json`](examples/inbox_rabbitmq/definitions.json), open the `letterbox.events` exchange and publish a message with routing key `hello` and this payload:
+
+```json
+{
+  "id": "d12183c8-9941-4a19-9eb2-2bf41f30b793",
+  "type": "hello",
+  "version": 1,
+  "sender": "example-app",
+  "occurredAt": "2026-10-06T06:12:32.189463586Z",
+  "content": {
+    "message": "Hello World!"
+  }
+}
+```
+
+RabbitMQ routes the message to `example.inbox` through the `#` binding. The consumer stores it with `StatusReceived`, acknowledges the RabbitMQ delivery and the scheduled Inbox worker dispatches it to the `HelloEvent` handler.

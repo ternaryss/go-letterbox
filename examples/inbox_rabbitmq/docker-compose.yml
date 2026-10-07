@@ -1,0 +1,16 @@
+networks:
+  letterbox:
+    external: true
+    name: letterbox
+
+services:
+  rabbitmq:
+    image: rabbitmq:4.3.6-management
+    networks:
+      - letterbox
+    ports:
+      - 5672:5672
+      - 15672:15672
+    volumes:
+      - ./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+      - ./definitions.json:/etc/rabbitmq/definitions.json:ro

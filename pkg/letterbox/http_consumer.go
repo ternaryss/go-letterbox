@@ -6,10 +6,6 @@ import (
 	"net/http"
 )
 
-type consumer interface {
-	register(inbox *Inbox) error
-}
-
 type httpConsumer struct {
 	mux *http.ServeMux
 }
@@ -50,5 +46,9 @@ func (c *httpConsumer) register(inbox *Inbox) error {
 		res.WriteHeader(http.StatusCreated)
 	})
 
+	return nil
+}
+
+func (c *httpConsumer) close() error {
 	return nil
 }

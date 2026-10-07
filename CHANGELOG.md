@@ -2,9 +2,13 @@
 
 History of **letterbox** library with changes description.
 
+## Next release
+
+- `FEATURE` RabbitMQ inbox consumer
+- `FEATURE` RabbitMQ outbox publisher
+
 ## v0.1.0 (2026-10-03)
 
-- `FEATURE` RabbitMQ outbox publisher
 - `FEATURE` Dummy (HTTP) inbox implementation
 - `FEATURE` Inbox API
 - `FEATURE` Dummy (console output) outbox implementation
