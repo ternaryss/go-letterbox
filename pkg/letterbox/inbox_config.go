@@ -10,20 +10,26 @@ import (
 type InboxOption func(*inboxConfig) error
 
 type inboxConfig struct {
-	scheduleMode  scheduleMode
-	cron          string
-	interval      time.Duration
-	receivedLimit int
-	consumer      consumer
+	scheduleMode     scheduleMode
+	cron             string
+	interval         time.Duration
+	receivedLimit    int
+	consumer         consumer
+	retentionEnabled bool
+	retentionAge     time.Duration
+	retentionCron    string
 }
 
 func defaultInboxConfig() inboxConfig {
 	return inboxConfig{
-		scheduleMode:  modeCron,
-		cron:          "* * * * *",
-		interval:      0,
-		receivedLimit: 0,
-		consumer:      nil,
+		scheduleMode:     modeCron,
+		cron:             "* * * * *",
+		interval:         0,
+		receivedLimit:    0,
+		consumer:         nil,
+		retentionEnabled: false,
+		retentionAge:     0,
+		retentionCron:    "",
 	}
 }
 
@@ -62,6 +68,24 @@ func WithInboxReceivedLimit(limit int) InboxOption {
 		}
 
 		config.receivedLimit = limit
+
+		return nil
+	}
+}
+
+func WithInboxRetention(age time.Duration, expression string) InboxOption {
+	return func(config *inboxConfig) error {
+		if len(strings.Fields(expression)) != 5 {
+			return errors.New("invalid inbox retention cron expression")
+		}
+
+		if age <= 0 {
+			return errors.New("invalid inbox retention age")
+		}
+
+		config.retentionEnabled = true
+		config.retentionAge = age
+		config.retentionCron = expression
 
 		return nil
 	}

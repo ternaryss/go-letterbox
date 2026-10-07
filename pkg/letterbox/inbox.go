@@ -3,9 +3,10 @@ package letterbox
 import "errors"
 
 type Inbox struct {
-	storage    InboxStore
-	dispatcher *dispatcher
-	worker     *inboxWorker
+	storage         InboxStore
+	dispatcher      *dispatcher
+	worker          *inboxWorker
+	retentionWorker *inboxRetentionWorker
 }
 
 func NewInbox(storage InboxStore, options ...InboxOption) (*Inbox, error) {
@@ -32,7 +33,13 @@ func NewInbox(storage InboxStore, options ...InboxOption) (*Inbox, error) {
 		return nil, err
 	}
 
-	inbox := &Inbox{storage: storage, dispatcher: dispatcher, worker: worker}
+	retentionWorker, err := newInboxRetentionWorker(storage, config)
+
+	if err != nil {
+		return nil, err
+	}
+
+	inbox := &Inbox{storage: storage, dispatcher: dispatcher, worker: worker, retentionWorker: retentionWorker}
 
 	if err := config.consumer.register(inbox); err != nil {
 		return nil, err
@@ -43,10 +50,23 @@ func NewInbox(storage InboxStore, options ...InboxOption) (*Inbox, error) {
 
 func (i *Inbox) Start() {
 	i.worker.scheduler.Start()
+
+	if i.retentionWorker.enabled {
+		i.retentionWorker.scheduler.Start()
+	}
 }
 
 func (i *Inbox) Stop() error {
-	return errors.Join(i.worker.scheduler.Shutdown(), i.worker.consumer.close())
+	var err error
+	err = errors.Join(err, i.worker.scheduler.Shutdown())
+
+	if i.retentionWorker.enabled {
+		err = errors.Join(err, i.retentionWorker.scheduler.Shutdown())
+	}
+
+	err = errors.Join(err, i.worker.consumer.close())
+
+	return err
 }
 
 func (i *Inbox) Flush() error {

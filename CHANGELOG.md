@@ -4,6 +4,7 @@ History of **letterbox** library with changes description.
 
 ## Next release
 
+- `FEATURE` Inbox retention & retry policy
 - `FEATURE` Outbox retention & retry policy
 
 ## v0.2.0 (2026-10-07)

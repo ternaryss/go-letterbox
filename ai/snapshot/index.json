@@ -58,6 +58,20 @@
     ]
   },
   {
+    "id": "inbox-retention",
+    "name": "Inbox Retention",
+    "description": "Scheduled cleanup of expired Inbox messages using application-defined expiration rules.",
+    "file": "data/inbox-retention.json",
+    "keywords": [
+      "inbox",
+      "retention",
+      "expired",
+      "delete",
+      "cleanup",
+      "cron"
+    ]
+  },
+  {
     "id": "receive-inbox-http-event",
     "name": "Receive Inbox HTTP Event",
     "description": "Receiving an HTTP envelope and storing it in the durable Inbox.",

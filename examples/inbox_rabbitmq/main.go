@@ -82,6 +82,10 @@ func (r *InboxRepo) Received(limit int) ([]letterbox.Message, error) {
 	return messages, nil
 }
 
+func (r *InboxRepo) DeleteExpired(olderThan time.Time) (int, error) {
+	return 0, nil
+}
+
 func main() {
 	storage := NewInboxRepo()
 	inbox, err := letterbox.NewInbox(

@@ -1,0 +1,38 @@
+{
+  "name": "Inbox Retention",
+  "description": "Scheduled cleanup of expired Inbox messages using application-defined expiration rules.",
+  "entrypoints": [
+    {
+      "type": "scheduler",
+      "path": "Inbox.Start() with WithInboxRetention(age, expression)",
+      "file": "./pkg/letterbox/inbox.go",
+      "symbol": "Inbox.Start"
+    }
+  ],
+  "files": [
+    {
+      "path": "./pkg/letterbox/inbox_retention.go",
+      "role": "worker",
+      "priority": 1,
+      "description": "Runs scheduled retention and delegates deletion to the Inbox store."
+    },
+    {
+      "path": "./pkg/letterbox/inbox.go",
+      "role": "service-entrypoint",
+      "priority": 1,
+      "description": "Creates, starts and stops the optional retention worker with the Inbox lifecycle."
+    },
+    {
+      "path": "./pkg/letterbox/inbox_config.go",
+      "role": "configuration",
+      "priority": 2,
+      "description": "Configures retention age and cron scheduling through Inbox options."
+    },
+    {
+      "path": "./pkg/letterbox/stores.go",
+      "role": "repository-contract",
+      "priority": 2,
+      "description": "Defines the storage method used by applications to delete expired Inbox messages."
+    }
+  ]
+}

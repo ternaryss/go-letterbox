@@ -1,6 +1,6 @@
 # Letterbox
 
-Letterbox is a generic Go library for reliable asynchronous event delivery and processing using the Inbox/Outbox pattern.
+Letterbox is a generic Go library for asynchronous event delivery and processing using the Inbox/Outbox pattern.
 
 It provides a common event model and abstractions for persisting, publishing, receiving and processing events while keeping storage and transport concerns decoupled from application logic.
 
@@ -24,7 +24,7 @@ Letterbox is built around two durable message flows:
 - **Outbox** - stores outgoing events and tracks their delivery state until they are successfully published.
 - **Inbox** - stores incoming events before acknowledging their receipt and tracks their processing state until they are successfully handled.
 
-Once an event is persisted, Letterbox takes responsibility for its further delivery or processing, including failure handling and retries.
+Once an event is persisted, Letterbox coordinates its further delivery or processing through the configured storage and transport adapters.
 
 Applications operate on strongly typed events, while Letterbox uses a generic event envelope internally to exchange and persist them.
 
@@ -32,9 +32,9 @@ Applications operate on strongly typed events, while Letterbox uses a generic ev
 
 - Transport-agnostic event processing
 - Storage-agnostic Inbox and Outbox
-- Reliable event delivery and processing
+- Reliable delivery and processing building blocks
 - Explicit delivery and processing state
-- Retry and duplicate handling
+- Retry and duplicate-aware storage hooks
 - Strongly typed application events
 - Minimal integration with application code
 
@@ -47,6 +47,8 @@ Applications operate on strongly typed events, while Letterbox uses a generic ev
 - [Outbox Flow](#outbox-flow)
 - [Outbox Retention](#outbox-retention)
 - [Inbox Flow](#inbox-flow)
+- [Inbox Retention](#inbox-retention)
+- [Reliability Model](#reliability-model)
 - [Configuration](#configuration)
 - [Storage Contracts](#storage-contracts)
 - [Examples](#examples)
@@ -243,7 +245,7 @@ The RabbitMQ publisher sends the full `Envelope` as JSON to the configured excha
 
 Connection-level RabbitMQ failures are treated differently from permanent publishing failures. If publishing fails because the connection, channel, return notifications or publisher confirm notifications are closed or because waiting for confirmation times out, the publisher closes its RabbitMQ resources and returns a connection error. The Outbox leaves the message as `StatusPending` and stops the current processing pass. A later `Flush` or scheduled run may retry the message if `OutboxStore.Pending` returns it again.
 
-RabbitMQ resources are re-created on the next publishing attempt when the publisher detects that its connection or channel is no longer usable. This preserves the Outbox at-least-once delivery model: a message whose broker confirmation was lost may be published again, so consumers should treat `Envelope.Id` as the idempotency key.
+RabbitMQ resources are re-created on the next publishing attempt when the publisher detects that its connection or channel is no longer usable. This supports an at-least-once delivery model when the storage implementation keeps pending messages durable and returns them for later processing. A message whose broker confirmation was lost may be published again, so consumers should treat `Envelope.Id` as the idempotency key.
 
 Retry policy is controlled by the application through the storage implementation. Letterbox does not store attempt counters, backoff timestamps or retry limits. If an application needs backoff, maximum attempts or delayed retries, it should implement that selection in `OutboxStore.Pending(limit)`.
 
@@ -317,6 +319,36 @@ defer inbox.Stop()
 
 During processing, the Inbox dispatcher selects a registered handler by envelope type and version, decodes the envelope content into the handler event type and executes the handler. On success the message is marked as `StatusExecuted`. On failure it is marked as `StatusError`.
 
+Retry policy is controlled by the application through the storage implementation. Letterbox does not store attempt counters, backoff timestamps or retry limits. If an application needs backoff, maximum attempts or delayed retries, it should implement that selection in `InboxStore.Received(limit)`.
+
+## Inbox Retention
+
+Inbox retention is optional and is configured with `WithInboxRetention(age, expression)`. When enabled, Letterbox starts a separate retention worker using the provided five-field cron expression.
+
+On each retention run, Letterbox computes a cutoff time in UTC:
+
+```go
+olderThan := time.Now().UTC().Add(-age)
+```
+
+It then calls:
+
+```go
+deleted, err := storage.DeleteExpired(olderThan)
+```
+
+The application storage implementation decides what `expired` means. Letterbox does not enforce which statuses, timestamps or records must be deleted. A storage implementation may choose to delete only executed messages, keep error messages for diagnostics, protect received messages or apply any other business rule required by the application.
+
+Retention may run concurrently with receiving and processing operations such as `Save`, `Received` and `UpdateStatus`. `InboxStore` implementations should therefore make `DeleteExpired` safe for concurrent use with the rest of the inbox storage methods.
+
+## Reliability Model
+
+Letterbox provides the core Inbox/Outbox coordination model, while storage and transport adapters define the final reliability guarantees of an application.
+
+The library does not provide exactly-once delivery, built-in persistent storage, distributed locking, dead-letter handling, retry counters, retry backoff or transaction management. Applications that need these behaviors should implement them in their storage layer or surrounding infrastructure.
+
+Retry selection is controlled by `OutboxStore.Pending(limit)` and `InboxStore.Received(limit)`. Retention rules are controlled by `DeleteExpired(olderThan)`. Concurrency control for multiple workers is also the responsibility of the storage implementation.
+
 ## Configuration
 
 Outbox and Inbox configuration is provided through options passed to `NewOutbox` and `NewInbox`.
@@ -352,8 +384,19 @@ outbox, err := letterbox.NewOutbox(
 | `WithInboxCron(expression)` | `* * * * *` | Sets the five-field cron expression used by scheduled Inbox processing. |
 | `WithInboxInterval(interval)` | none | Uses a `time.Duration` interval instead of cron scheduling. |
 | `WithInboxReceivedLimit(limit)` | `0` | Limits how many received messages are loaded per processing run. `0` means no limit. |
+| `WithInboxRetention(age, expression)` | disabled | Enables scheduled Inbox retention. `age` must be a positive `time.Duration`; `expression` must be a five-field cron expression. |
 | `WithInboxHttpConsumer(mux)` | required | Registers the HTTP consumer on the provided `*http.ServeMux`. |
 | `WithInboxRabbitMqConsumer(url, queue)` | required | Uses RabbitMQ as the Inbox consumer. It consumes envelopes from the configured queue. |
+
+Example Inbox retention configuration:
+
+```go
+inbox, err := letterbox.NewInbox(
+    storage,
+    letterbox.WithInboxHttpConsumer(mux),
+    letterbox.WithInboxRetention(7*24*time.Hour, "0 * * * *"),
+)
+```
 
 Cron scheduling uses five-field expressions, for example:
 
@@ -413,6 +456,7 @@ type InboxStore interface {
     Save(message Message) (bool, error)
     Received(limit int) ([]Message, error)
     UpdateStatus(key MessageKey, status Status) error
+    DeleteExpired(olderThan time.Time) (int, error)
 }
 ```
 
@@ -423,8 +467,11 @@ The Inbox uses this contract as follows:
 | `Save` | Stores an incoming message with `StatusReceived`. Returning `false, nil` indicates that the message was already known by storage. |
 | `Received` | Loads received messages selected for processing. |
 | `UpdateStatus` | Marks processed messages as `StatusExecuted` or `StatusError`. |
+| `DeleteExpired` | Deletes messages that the application considers expired before the provided UTC cutoff time. |
 
-Storage implementation details are left to the application or adapter using the library.
+`Received` is also the extension point for application-specific retry policy. Because Letterbox does not persist retry metadata, the storage implementation decides which received messages are ready for another processing attempt and how the `limit` is applied.
+
+`DeleteExpired` receives a cutoff time calculated by Letterbox, but the storage implementation defines the deletion rule. For example, it may combine the cutoff with message status, update timestamps, executed timestamps or other business-specific retention criteria. It should be safe to call while other Inbox operations are running.
 
 ## Examples
 

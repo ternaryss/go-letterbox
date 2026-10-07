@@ -6,6 +6,7 @@ type InboxStore interface {
 	Save(message Message) (bool, error)
 	UpdateStatus(key MessageKey, status Status) error
 	Received(limit int) ([]Message, error)
+	DeleteExpired(olderThan time.Time) (int, error)
 }
 
 type OutboxStore interface {
