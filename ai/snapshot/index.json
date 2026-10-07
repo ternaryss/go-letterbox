@@ -28,7 +28,7 @@
   {
     "id": "process-outbox-pending",
     "name": "Process Outbox Pending",
-    "description": "Loading pending Outbox messages and recording the publishing result.",
+    "description": "Loading pending Outbox messages, handling publishing retries, and recording the result.",
     "file": "data/process-outbox-pending.json",
     "keywords": [
       "outbox",
@@ -37,8 +37,24 @@
       "publisher",
       "rabbitmq",
       "amqp",
+      "retry",
+      "reconnect",
       "cron",
       "interval"
+    ]
+  },
+  {
+    "id": "outbox-retention",
+    "name": "Outbox Retention",
+    "description": "Scheduled cleanup of expired Outbox messages using application-defined expiration rules.",
+    "file": "data/outbox-retention.json",
+    "keywords": [
+      "outbox",
+      "retention",
+      "expired",
+      "delete",
+      "cleanup",
+      "cron"
     ]
   },
   {

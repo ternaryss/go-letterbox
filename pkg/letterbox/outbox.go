@@ -3,9 +3,10 @@ package letterbox
 import "errors"
 
 type Outbox struct {
-	sender  string
-	storage OutboxStore
-	worker  *outboxWorker
+	sender          string
+	storage         OutboxStore
+	worker          *outboxWorker
+	retentionWorker *outboxRetentionWorker
 }
 
 func NewOutbox(sender string, storage OutboxStore, options ...OutboxOption) (*Outbox, error) {
@@ -35,15 +36,34 @@ func NewOutbox(sender string, storage OutboxStore, options ...OutboxOption) (*Ou
 		return nil, err
 	}
 
-	return &Outbox{sender: sender, storage: storage, worker: worker}, nil
+	retentionWorker, err := newOutboxRetentionWorker(storage, config)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &Outbox{sender: sender, storage: storage, worker: worker, retentionWorker: retentionWorker}, nil
 }
 
 func (o *Outbox) Start() {
 	o.worker.scheduler.Start()
+
+	if o.retentionWorker.enabled {
+		o.retentionWorker.scheduler.Start()
+	}
 }
 
 func (o *Outbox) Stop() error {
-	return errors.Join(o.worker.scheduler.Shutdown(), o.worker.publisher.close())
+	var err error
+	err = errors.Join(err, o.worker.scheduler.Shutdown())
+
+	if o.retentionWorker.enabled {
+		err = errors.Join(err, o.retentionWorker.scheduler.Shutdown())
+	}
+
+	err = errors.Join(err, o.worker.publisher.close())
+
+	return err
 }
 
 func (o *Outbox) Flush() error {

@@ -45,6 +45,7 @@ Applications operate on strongly typed events, while Letterbox uses a generic ev
 - [Inbox API](#inbox-api)
 - [Event Model](#event-model)
 - [Outbox Flow](#outbox-flow)
+- [Outbox Retention](#outbox-retention)
 - [Inbox Flow](#inbox-flow)
 - [Configuration](#configuration)
 - [Storage Contracts](#storage-contracts)
@@ -236,9 +237,35 @@ outbox.Start()
 defer outbox.Stop()
 ```
 
-After a pending message is successfully published by the configured publisher, the Outbox marks it as `StatusEmitted`. If publishing fails, it marks the message as `StatusError`.
+After a pending message is successfully published by the configured publisher, the Outbox marks it as `StatusEmitted`. If publishing fails with a permanent publishing error, it marks the message as `StatusError`.
 
 The RabbitMQ publisher sends the full `Envelope` as JSON to the configured exchange and uses `Envelope.Type` as the routing key. It uses mandatory publishing and publisher confirms, so an unroutable message or a negative broker confirmation is treated as a publishing failure.
+
+Connection-level RabbitMQ failures are treated differently from permanent publishing failures. If publishing fails because the connection, channel, return notifications or publisher confirm notifications are closed or because waiting for confirmation times out, the publisher closes its RabbitMQ resources and returns a connection error. The Outbox leaves the message as `StatusPending` and stops the current processing pass. A later `Flush` or scheduled run may retry the message if `OutboxStore.Pending` returns it again.
+
+RabbitMQ resources are re-created on the next publishing attempt when the publisher detects that its connection or channel is no longer usable. This preserves the Outbox at-least-once delivery model: a message whose broker confirmation was lost may be published again, so consumers should treat `Envelope.Id` as the idempotency key.
+
+Retry policy is controlled by the application through the storage implementation. Letterbox does not store attempt counters, backoff timestamps or retry limits. If an application needs backoff, maximum attempts or delayed retries, it should implement that selection in `OutboxStore.Pending(limit)`.
+
+## Outbox Retention
+
+Outbox retention is optional and is configured with `WithOutboxRetention(age, expression)`. When enabled, Letterbox starts a separate retention worker using the provided five-field cron expression.
+
+On each retention run, Letterbox computes a cutoff time in UTC:
+
+```go
+olderThan := time.Now().UTC().Add(-age)
+```
+
+It then calls:
+
+```go
+deleted, err := storage.DeleteExpired(olderThan)
+```
+
+The application storage implementation decides what `expired` means. Letterbox does not enforce which statuses, timestamps or records must be deleted. A storage implementation may choose to delete only emitted messages, keep error messages for diagnostics, protect pending messages or apply any other business rule required by the application.
+
+Retention may run concurrently with publishing operations such as `Save`, `Pending` and `UpdateStatus`. `OutboxStore` implementations should therefore make `DeleteExpired` safe for concurrent use with the rest of the outbox storage methods.
 
 ## Inbox Flow
 
@@ -301,10 +328,22 @@ Outbox and Inbox configuration is provided through options passed to `NewOutbox`
 | `WithOutboxCron(expression)` | `* * * * *` | Sets the five-field cron expression used by scheduled Outbox processing. |
 | `WithOutboxInterval(interval)` | none | Uses a `time.Duration` interval instead of cron scheduling. |
 | `WithOutboxPendingLimit(limit)` | `0` | Limits how many pending messages are loaded per processing run. `0` means no limit. |
+| `WithOutboxRetention(age, expression)` | disabled | Enables scheduled Outbox retention. `age` must be a positive `time.Duration`; `expression` must be a five-field cron expression. |
 | `WithOutboxConsolePublisher()` | required | Uses the console publisher that logs published envelopes. |
 | `WithOutboxRabbitMqPublisher(url, exchange, timeout)` | required | Uses RabbitMQ as the Outbox publisher. It publishes envelopes to the configured exchange using the envelope type as the routing key. |
 
-The RabbitMQ publisher requires an existing exchange. The exchange must have a binding that matches the event type used as the routing key. If no queue can be routed for the published event and RabbitMQ returns the message as unroutable, the Outbox marks the message as `StatusError`.
+The RabbitMQ publisher requires an existing exchange. The exchange must have a binding that matches the event type used as the routing key. If no queue can be routed for the published event and RabbitMQ returns the message as unroutable, the Outbox marks the message as `StatusError`. If RabbitMQ connectivity fails while publishing or waiting for confirmation, the message remains `StatusPending` and can be retried by a later processing pass.
+
+Example Outbox retention configuration:
+
+```go
+outbox, err := letterbox.NewOutbox(
+    "example-app",
+    storage,
+    letterbox.WithOutboxConsolePublisher(),
+    letterbox.WithOutboxRetention(7*24*time.Hour, "0 * * * *"),
+)
+```
 
 ### Inbox Options
 
@@ -348,6 +387,7 @@ type OutboxStore interface {
     Save(message Message) error
     UpdateStatus(id string, status Status) error
     Pending(limit int) ([]Message, error)
+    DeleteExpired(olderThan time.Time) (int, error)
 }
 ```
 
@@ -358,6 +398,11 @@ The Outbox uses this contract as follows:
 | `Save` | Stores a newly published message with `StatusPending`. |
 | `Pending` | Loads messages selected for processing. |
 | `UpdateStatus` | Marks processed messages as `StatusEmitted` or `StatusError`. |
+| `DeleteExpired` | Deletes messages that the application considers expired before the provided UTC cutoff time. |
+
+`Pending` is also the extension point for application-specific retry policy. Because Letterbox does not persist retry metadata, the storage implementation decides which pending messages are ready for another processing attempt and how the `limit` is applied.
+
+`DeleteExpired` receives a cutoff time calculated by Letterbox, but the storage implementation defines the deletion rule. For example, it may combine the cutoff with message status, update timestamps, emitted timestamps or other business-specific retention criteria. It should be safe to call while other Outbox operations are running.
 
 ### Inbox Storage
 

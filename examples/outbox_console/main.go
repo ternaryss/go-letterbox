@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"time"
 
 	"github.com/ternaryss/go-letterbox/pkg/letterbox"
 )
@@ -69,6 +70,10 @@ func (r *OutboxRepo) Pending(limit int) ([]letterbox.Message, error) {
 	}
 
 	return messages, nil
+}
+
+func (r *OutboxRepo) DeleteExpired(olderThan time.Time) (int, error) {
+	return 0, nil
 }
 
 func main() {

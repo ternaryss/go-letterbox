@@ -72,6 +72,10 @@ func (r *OutboxRepo) Pending(limit int) ([]letterbox.Message, error) {
 	return messages, nil
 }
 
+func (r *OutboxRepo) DeleteExpired(olderThan time.Time) (int, error) {
+	return 0, nil
+}
+
 func main() {
 	storage := NewOutboxRepo()
 	outbox, err := letterbox.NewOutbox(
