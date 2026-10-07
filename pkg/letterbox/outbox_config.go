@@ -9,20 +9,26 @@ import (
 type OutboxOption func(*outboxConfig) error
 
 type outboxConfig struct {
-	scheduleMode scheduleMode
-	cron         string
-	interval     time.Duration
-	pendingLimit int
-	publisher    publisher
+	scheduleMode     scheduleMode
+	cron             string
+	interval         time.Duration
+	pendingLimit     int
+	publisher        publisher
+	retentionEnabled bool
+	retentionAge     time.Duration
+	retentionCron    string
 }
 
 func defaultOutboxConfig() outboxConfig {
 	return outboxConfig{
-		scheduleMode: modeCron,
-		cron:         "* * * * *",
-		interval:     0,
-		pendingLimit: 0,
-		publisher:    nil,
+		scheduleMode:     modeCron,
+		cron:             "* * * * *",
+		interval:         0,
+		pendingLimit:     0,
+		publisher:        nil,
+		retentionEnabled: false,
+		retentionAge:     0,
+		retentionCron:    "",
 	}
 }
 
@@ -61,6 +67,24 @@ func WithOutboxPendingLimit(limit int) OutboxOption {
 		}
 
 		config.pendingLimit = limit
+
+		return nil
+	}
+}
+
+func WithOutboxRetention(age time.Duration, expression string) OutboxOption {
+	return func(config *outboxConfig) error {
+		if len(strings.Fields(expression)) != 5 {
+			return errors.New("invalid outbox retention cron expression")
+		}
+
+		if age <= 0 {
+			return errors.New("invalid outbox retention age")
+		}
+
+		config.retentionEnabled = true
+		config.retentionAge = age
+		config.retentionCron = expression
 
 		return nil
 	}

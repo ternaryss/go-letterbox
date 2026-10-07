@@ -1,6 +1,6 @@
 {
   "name": "Process Outbox Pending",
-  "description": "Manual or scheduled processing of pending Outbox messages through a publisher, with result status updates.",
+  "description": "Manual or scheduled processing of pending Outbox messages through a publisher, including connection retry handling and result status updates.",
   "entrypoints": [
     {
       "type": "api",
@@ -44,7 +44,13 @@
       "path": "./pkg/letterbox/rabbitmq_publisher.go",
       "role": "transport-adapter",
       "priority": 2,
-      "description": "RabbitMQ publisher adapter for emitting pending Outbox messages."
+      "description": "RabbitMQ publisher adapter for emitting pending Outbox messages and rebuilding AMQP resources after connection failures."
+    },
+    {
+      "path": "./pkg/letterbox/errors.go",
+      "role": "error-classification",
+      "priority": 2,
+      "description": "Classifies connection failures so pending messages can remain retryable."
     },
     {
       "path": "./pkg/letterbox/console_publisher.go",

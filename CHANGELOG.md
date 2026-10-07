@@ -2,6 +2,11 @@
 
 History of **letterbox** library with changes description.
 
+## v1.0.0 (2026-10-07)
+
+- `FEATURE` Inbox retention & retry policy
+- `FEATURE` Outbox retention & retry policy
+
 ## v0.2.0 (2026-10-07)
 
 - `FEATURE` RabbitMQ inbox consumer

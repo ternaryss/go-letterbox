@@ -51,6 +51,10 @@ func (w *outboxWorker) process() error {
 		if err := w.publisher.publish(message.Envelope); err != nil {
 			slog.Error("[LETTERBOX] Failed to publish pending message", "id", message.Envelope.Id, "err", err)
 
+			if isConnectionError(err) {
+				return nil
+			}
+
 			if err := w.storage.UpdateStatus(message.Envelope.Id, StatusError); err != nil {
 				slog.Error(
 					"[LETTERBOX] Failed to update message status", "id", message.Envelope.Id, "status", StatusError, "err", err,

@@ -36,49 +36,29 @@ func newRabbitMqPublisher(url, exchange string, timeout time.Duration) (*rabbitM
 		return nil, errors.New("invalid rabbitmq timeout")
 	}
 
-	connection, err := amqp.Dial(url)
+	publisher := &rabbitMqPublisher{
+		url:      url,
+		exchange: exchange,
+		timeout:  timeout,
+	}
 
-	if err != nil {
+	if err := publisher.connect(); err != nil {
 		return nil, err
 	}
 
-	channel, err := connection.Channel()
-
-	if err != nil {
-		if closeErr := connection.Close(); closeErr != nil {
-			return nil, errors.Join(err, closeErr)
-		}
-
-		return nil, err
-	}
-
-	if err := channel.Confirm(false); err != nil {
-		closeErr := errors.Join(channel.Close(), connection.Close())
-
-		if closeErr != nil {
-			return nil, errors.Join(err, closeErr)
-		}
-
-		return nil, err
-	}
-
-	return &rabbitMqPublisher{
-		url:        url,
-		exchange:   exchange,
-		timeout:    timeout,
-		connection: connection,
-		channel:    channel,
-		returns:    channel.NotifyReturn(make(chan amqp.Return, 1)),
-		confirms:   channel.NotifyPublish(make(chan amqp.Confirmation, 1)),
-	}, nil
+	return publisher, nil
 }
 
 func (p *rabbitMqPublisher) publish(envelope Envelope) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
+	if err := p.ensureConnected(); err != nil {
+		return newConnectionError(err)
+	}
+
 	if p.channel == nil {
-		return errors.New("rabbitmq channel is nil")
+		return newConnectionError(errors.New("rabbitmq channel is nil"))
 	}
 
 	body, err := json.Marshal(envelope)
@@ -105,8 +85,8 @@ func (p *rabbitMqPublisher) publish(envelope Envelope) error {
 			Body:         body,
 		},
 	); err != nil {
-		p.closeResources()
-		return err
+		closeErr := p.closeResources()
+		return newConnectionError(errors.Join(err, closeErr))
 	}
 
 	var returned *amqp.Return
@@ -115,8 +95,8 @@ func (p *rabbitMqPublisher) publish(envelope Envelope) error {
 		select {
 		case ret, ok := <-p.returns:
 			if !ok {
-				p.closeResources()
-				return errors.New("rabbitmq returns channel closed")
+				closeErr := p.closeResources()
+				return newConnectionError(errors.Join(errors.New("rabbitmq returns channel closed"), closeErr))
 			}
 
 			if ret.MessageId != envelope.Id {
@@ -133,8 +113,8 @@ func (p *rabbitMqPublisher) publish(envelope Envelope) error {
 
 		case confirmation, ok := <-p.confirms:
 			if !ok {
-				p.closeResources()
-				return errors.New("rabbitmq confirms channel closed")
+				closeErr := p.closeResources()
+				return newConnectionError(errors.Join(errors.New("rabbitmq confirms channel closed"), closeErr))
 			}
 
 			if !confirmation.Ack {
@@ -155,8 +135,8 @@ func (p *rabbitMqPublisher) publish(envelope Envelope) error {
 			return nil
 
 		case <-ctx.Done():
-			p.closeResources()
-			return ctx.Err()
+			closeErr := p.closeResources()
+			return newConnectionError(errors.Join(ctx.Err(), closeErr))
 		}
 	}
 }
@@ -210,4 +190,53 @@ func (p *rabbitMqPublisher) drainReturn(id string) *amqp.Return {
 	default:
 		return nil
 	}
+}
+
+func (p *rabbitMqPublisher) connect() error {
+	connection, err := amqp.Dial(p.url)
+
+	if err != nil {
+		return err
+	}
+
+	channel, err := connection.Channel()
+
+	if err != nil {
+		closeErr := connection.Close()
+
+		if closeErr != nil {
+			return errors.Join(err, closeErr)
+		}
+
+		return err
+	}
+
+	if err := channel.Confirm(false); err != nil {
+		closeErr := errors.Join(channel.Close(), connection.Close())
+
+		if closeErr != nil {
+			return errors.Join(err, closeErr)
+		}
+
+		return err
+	}
+
+	p.connection = connection
+	p.channel = channel
+	p.returns = channel.NotifyReturn(make(chan amqp.Return, 1))
+	p.confirms = channel.NotifyPublish(make(chan amqp.Confirmation, 1))
+
+	return nil
+}
+
+func (p *rabbitMqPublisher) ensureConnected() error {
+	if p.connection != nil && !p.connection.IsClosed() && p.channel != nil {
+		return nil
+	}
+
+	if err := p.closeResources(); err != nil {
+		return err
+	}
+
+	return p.connect()
 }

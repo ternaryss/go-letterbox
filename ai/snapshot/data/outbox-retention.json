@@ -1,0 +1,38 @@
+{
+  "name": "Outbox Retention",
+  "description": "Scheduled cleanup of expired Outbox messages using application-defined expiration rules.",
+  "entrypoints": [
+    {
+      "type": "scheduler",
+      "path": "Outbox.Start() with WithOutboxRetention(age, expression)",
+      "file": "./pkg/letterbox/outbox.go",
+      "symbol": "Outbox.Start"
+    }
+  ],
+  "files": [
+    {
+      "path": "./pkg/letterbox/outbox_retention.go",
+      "role": "worker",
+      "priority": 1,
+      "description": "Runs scheduled retention and delegates deletion to the Outbox store."
+    },
+    {
+      "path": "./pkg/letterbox/outbox.go",
+      "role": "service-entrypoint",
+      "priority": 1,
+      "description": "Creates, starts and stops the optional retention worker with the Outbox lifecycle."
+    },
+    {
+      "path": "./pkg/letterbox/outbox_config.go",
+      "role": "configuration",
+      "priority": 2,
+      "description": "Configures retention age and cron scheduling through Outbox options."
+    },
+    {
+      "path": "./pkg/letterbox/stores.go",
+      "role": "repository-contract",
+      "priority": 2,
+      "description": "Defines the storage method used by applications to delete expired Outbox messages."
+    }
+  ]
+}
